@@ -23,11 +23,12 @@
 #'   inside the specified \code{path.outfile/data/} directory.
 #'
 #' @importFrom igraph graph_from_adjacency_matrix as_adjacency_matrix is_connected
-#' @import abn
 #' @import rjags
 #' @export
 simulateABNdata <- function(n, p, nodedists, d, max_parents, magnitude = NULL, MB = list(MB_size = NULL, node = NULL), n_graphs, path.outfile, rngSEED, counter = NULL) {
-  
+  if (!is.null(rngSEED)) {
+    set.seed(rngSEED)
+  }
   if (!is.numeric(d) || length(d) != 1 || d <= 0 || d >= 1) {
     stop("'d' must be a numeric value strictly between 0 and 1.")
   }
@@ -44,20 +45,20 @@ simulateABNdata <- function(n, p, nodedists, d, max_parents, magnitude = NULL, M
     stop("'max_parents' must be a numeric value greater than 0.")
   }
   
-  valid_types <- c("balanced","gaussian","poisson","binomial","multinomial")
+  valid_types <- c("balanced","G","P","B","M")
   if (!nodedists %in% valid_types) {
     stop(paste("nodedists must be one of:", paste(valid_types, collapse = ", ")))
   }
   
   dists <- rep(1,4)
   names(dists) <- c("gaussian","poisson","binomial","multinomial")
-  if (nodedists == "gaussian"){
+  if (nodedists == "G"){
     dists["gaussian"] <- p-3
-  } else if (nodedists == "poisson"){
+  } else if (nodedists == "P"){
     dists["poisson"] <- p-3
-  } else if (nodedists == "binomial"){
+  } else if (nodedists == "B"){
     dists["binomial"] <- p-3
-  } else if (nodedists == "multinomial"){
+  } else if (nodedists == "M"){
     dists["multinomial"] <- p-3
   } else if (nodedists == "balanced"){
     dists <- rep(p/4,4)
@@ -91,7 +92,7 @@ simulateABNdata <- function(n, p, nodedists, d, max_parents, magnitude = NULL, M
   Check <- check_combinations(p = p, d, max_parents, nodedists, p_distrib)
   
   if (is.null(Check)){
-    nbr_graphs <- 100
+    nbr_graphs <- 2000
     
     adj_matrix_total <- generate_RandomDAGs(p_distrib, d = d, max_parents = max_parents, nbr_graphs = nbr_graphs, MB = MB)
     
@@ -111,9 +112,9 @@ simulateABNdata <- function(n, p, nodedists, d, max_parents, magnitude = NULL, M
       dag = t(igraph::as_adjacency_matrix(DAG,sparse=FALSE))
               
       if (!is.null(MB$MB_size)){
-        outfile <- file.path(path.outfile, "/data-raw/", "n_",n,"_p_",p,"_nodedists_",nodedists,"_d_",gsub('[.]','',d),"_mp_",max_parents,"_MB_",MB$MB_size,"_node_",MB$node,"_graph",counter,".txt"))
+        outfile <- file.path(path.outfile, "/data-raw/", "n_",n,"_p_",p,"_nodedists_",nodedists,"_d_",gsub('[.]','',d),"_mp_",max_parents,"_MB_",MB$MB_size,"_node_",MB$node,"_graph",counter,".txt")
       } else {
-        outfile <- file.path(path.outfile, "/data-raw/", "n_",n,"_p_",p,"_nodedists_",nodedists,"_d_",gsub('[.]','',d),"_mp_",max_parents,"_graph",counter,".txt"))
+        outfile <- file.path(path.outfile, "/data-raw/", "n_",n,"_p_",p,"_nodedists_",nodedists,"_d_",gsub('[.]','',d),"_mp_",max_parents,"_graph",counter,".txt")
       }
       
       # generation of the coefficients
@@ -237,9 +238,11 @@ simulateABNdata <- function(n, p, nodedists, d, max_parents, magnitude = NULL, M
       }
       
       AbnObject <- list("abnDag"=list("dag"=dag ,"data.dists"=dists), "mse" = mymse, "coef" = mycoefs)
-      
-      try.data <- try(simulateAbn(object = AbnObject, n = n))
-      
+      try.data <- try(simulateAbn(
+        object = AbnObject, 
+        n = n,
+        seed = rngSEED
+      ), TRUE)
       if (inherits(try.data, "try-error")) next
       
       data <- try.data
@@ -255,7 +258,7 @@ simulateABNdata <- function(n, p, nodedists, d, max_parents, magnitude = NULL, M
         } else {
           newdataname <- paste0("n_",n,"_p_",p,"_nodedists_",nodedists,"_d_",gsub('[.]','',d),"_mp_",max_parents,"_graph",counter)
         }
-        assign(newdataname, data)
+        assign(newdataname, simData)
         full_path <- file.path(path.outfile, paste0("data/",newdataname, ".RData"))
         save(list = newdataname, file = full_path)
         

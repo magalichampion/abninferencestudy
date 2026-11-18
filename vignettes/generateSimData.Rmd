@@ -53,10 +53,14 @@ n <- 100 # number of observations
 p_range <- c(4,8,12,16,20) # number of nodes
 d_range <- c(0.2,0.4,0.6) # density
 mp_range <- c(2:8) # maximal number of parents
-nodedists_range <- c("balanced","G","B","M")  # distribution of nodes
 
 # run the code to simulate the data
 for (p in p_range){
+  if (p==4){
+    nodedists_range <- "balanced"  # distribution of nodes
+  } else {
+    nodedists_range <- c("balanced","G","B","M")  # distribution of nodes
+  }
   for (nodedists in nodedists_range){
     for (d in d_range){
       for (mp in unique(c(mp_range,p-1))){
@@ -69,4 +73,29 @@ for (p in p_range){
 
 # load the data 
 load(here::here("data", "n_100_p_8_nodedists_balanced_d_06_mp_3_graph2.Rdata"))
+```
+
+# Generate simulated data with fixed Markov blanket size
+
+```{r}
+# set the parameters to simulated data
+n <- 100 # number of observations
+p <- 12 # number of nodes in the graph
+d <- 0.4 # density
+mp <- 5 # maximal number of parents
+n_graphs <- 10 # number of graphs to simulate
+path.outfile <- here::here()
+rngSEED <- 12345L
+
+nodedists_range <- c("balanced","G","P","B","M")  # distribution of nodes
+
+for (nodedists in nodedists_range){
+  for (mb_size in (1:(p-1))){
+    for (node in c("g1","p1","b1","m1")){
+      simulateABNdata(n = n, p = p, nodedists = nodedists, d = d, max_parents = mp, 
+                MB = list(MB_size = mb_size, node = node),
+                n_graphs = n_graphs, path.outfile = path.outfile, rngSEED = rngSEED)
+    } 
+  }
+}
 ```
