@@ -1,0 +1,72 @@
+---
+title: "Generate simulated data"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Generate simulated data}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(abninferencestudy)
+```
+
+# Generate simulated data for a set of parameters
+```{r}
+# set the parameters to simulated data
+n <- 100 # number of observations
+p <- 8 # number of nodes in the graph
+nodedists <- "balanced" # nodes distribution
+d <- 0.6 # density
+mp <- 3 # maximal number of parents
+n_graphs <- 10 # number of graphs to simulate
+path.outfile <- here::here()
+rngSEED <- 12345L
+
+# run the code to simulate the data
+simulateABNdata(n = n, p = p, nodedists = nodedists, d = d, max_parents = mp, 
+                n_graphs = n_graphs, path.outfile = path.outfile, rngSEED = rngSEED)
+
+# load the data to check
+load(here::here("data", "n_100_p_8_nodedists_balanced_d_06_mp_3_graph2.Rdata"))
+```
+
+# Generate simulated data for all possible combinations of parameters
+```{r}
+# set the parameters
+n_graphs <- 10 # number of graphs to simulate
+path.outfile <- here::here()
+rngSEED <- 12345L
+
+n <- 100 # number of observations
+p_range <- c(4,8,12,16,20) # number of nodes
+d_range <- c(0.2,0.4,0.6) # density
+mp_range <- c(2:8) # maximal number of parents
+nodedists_range <- c("balanced","G","B","M")  # distribution of nodes
+
+# run the code to simulate the data
+for (p in p_range){
+  for (nodedists in nodedists_range){
+    for (d in d_range){
+      for (mp in unique(c(mp_range,p-1))){
+        simulateABNdata(n = n, p = p, nodedists = nodedists, d = d, max_parents = mp, 
+                n_graphs = n_graphs, path.outfile = path.outfile, rngSEED = rngSEED)
+      }
+    }
+  }
+}
+
+# load the data 
+load(here::here("data", "n_100_p_8_nodedists_balanced_d_06_mp_3_graph2.Rdata"))
+```
