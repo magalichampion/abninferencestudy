@@ -8,11 +8,10 @@ License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
-Imports:
 Imports: 
-    abn,
     igraph,
     rjags,
     here
 Remotes: 
     furrer-lab/abn
+RoxygenNote: 7.3.3
