@@ -1,0 +1,171 @@
+---
+title: "Evaluate Performance"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Evaluate Performance}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(abninferencestudy)
+```
+
+In this vignette, we describe how to use the function `EvaluatePerf()`. This function evaluates the predictive performance of ABN inference results by comparing it to the true data. It computes prediction scores (MSE for Gaussian, deviance for Poisson, Brier scores for bin/multi), accuracy (bin/multi), biases, and records computational time. It is designed to take the true data object and the predictions as inputs and return a summary of performance metrics for further analysis.
+
+```{r}
+# Example: loading one simulated data set and its corresponding prediction results
+
+# Define simulation parameters
+n <- 100
+p <- 12
+d <- 0.4 
+mp <- 5
+nodedists <- "balanced"
+n_graph <- 2
+
+evidence_type_list <- c("none", "children", "spouses", "parents", "mb") 
+
+# Construct the filename for the true simulated data
+data_dir <- here("data")
+results_dir <- here("results")
+name_data <- paste0(
+                "n_100_p_", p,
+                "_nodedists_", nodedists,
+                "_d_", gsub('[.]','',d),
+                "_mp_", mp,
+                "_graph", n_graph
+              )
+data_file <- file.path(data_dir, paste0(name_data, ".Rdata"))
+results_file <- file.path(results_dir, paste0("abn_inference_",name_data, ".Rdata"))
+
+# Load the data
+if (!file.exists(data_file)) {
+  message("Input file not found: ", name_data, ".")
+} else {
+  load(data_file)
+  obj_name <- ls(pattern = paste0("^", name_data))
+  if (length(obj_name) == 0) {
+    stop("No matching object found in the loaded file for: ", name_data)
+  }
+  data <- get(obj_name[1])
+}
+if (!file.exists(results_file)) {
+  message("Inference results do not exist for ", name_data, ".")
+} else {
+  load(results_file)
+  pred_obj_name <- grep(paste0("^abn_inference_", name_data), ls(), value = TRUE)
+  if (length(pred_obj_name) == 0) {
+    stop("No matching object found in the loaded file for: ", name_data)
+  }
+  pred <- get(pred_obj_name[1])
+}
+                  
+# Compute the performance results 
+results <- purrr::map(
+  evidence_type_list,
+  function(ev) {
+    EvaluatePerf(
+      observed  = data$data,
+      predicted = pred[[ev]],
+      dists     = data$dists
+    )
+  })
+names(results) <- evidence_type_list
+perf_all <- dplyr::bind_rows(results, .id = "evidence")
+
+comp_time <- pred$time[evidence_type_list]
+perf_all$comp_time <- as.numeric(comp_time[perf_all$evidence])
+
+scores_obj_name <- paste0("Scores_", name_data)
+assign(scores_obj_name, perf_all, envir = environment())
+
+scores_file <- file.path(results_dir, paste0(scores_obj_name, ".Rdata"))
+save(list = scores_obj_name, file = scores_file)
+
+# 4. Clean up temporary objects from the environment
+rm(
+  list = intersect(
+    c("results", "perf_all", "comp_time", "data_obj", "pred_obj", "scores_file", "scores_obj_name"),
+    ls(envir = environment())
+  ),
+  envir = environment()
+)
+```
+
+For generating the figures, we need to go through all existing `abn_inference` objects.
+
+```{r}
+# Extract the files
+file_names <- dir(path = here("results"), 
+                       pattern = "^abn_inference")
+
+for (filename in file_names){
+  name_data <- sub("\\.RData$", "", filename) # remove the .RData suffix
+  name_data <- sub("^abn_inference_", "", name_data) # remove the abn_inference prefix
+
+  # check if scores already exist
+  scores_obj_name <- paste0("Scores_", name_data)
+  score_file <- file.path(here("results"), paste0(scores_obj_name, ".RData"))
+  
+  if (file.exists(score_file)) {
+    message("Scores for ", name_data, " were already computed. Skipping.")
+    next
+  }
+
+  # load predictions
+  load(file.path(here("results"), filename))
+  
+  pred_obj_name <- grep(paste0("^abn_inference_", name_data), ls(), value = TRUE)
+  if (length(pred_obj_name) == 0) {
+    stop("No matching object found in the loaded file for: ", name_data)
+  }
+  pred <- get(pred_obj_name[1])
+
+  # load associated data
+  data_file <- file.path(here("data"), paste0(name_data, ".Rdata"))
+  load(data_file)
+  obj_name <- ls(pattern = paste0("^", name_data))
+  if (length(obj_name) == 0) {
+    stop("No matching object found in the loaded file for: ", name_data)
+  }
+  data <- get(obj_name[1])
+  
+  # Compute the performance results 
+  results <- purrr::map(
+    evidence_type_list,
+    function(ev) {
+      EvaluatePerf(
+        observed  = data$data,
+        predicted = pred[[ev]],
+        dists     = data$dists
+      )
+    })
+  names(results) <- evidence_type_list
+  perf_all <- dplyr::bind_rows(results, .id = "evidence")
+
+  comp_time <- pred$time[evidence_type_list]
+  perf_all$comp_time <- as.numeric(comp_time[perf_all$evidence])
+
+  scores_obj_name <- paste0("Scores_", name_data)
+  assign(scores_obj_name, perf_all, envir = environment())
+
+  scores_file <- file.path(results_dir, paste0(scores_obj_name, ".Rdata"))
+  save(list = scores_obj_name, file = scores_file)
+
+  rm(
+    list = intersect(
+      c("results", "perf_all", "comp_time", "data_obj", "pred_obj", "scores_file", "scores_obj_name"),
+      ls(envir = environment())
+    ),
+    envir = environment()
+  )
+}
+```

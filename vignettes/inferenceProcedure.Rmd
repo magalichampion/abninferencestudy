@@ -1,0 +1,655 @@
+---
+title: "Inference procedure"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Inference procedure}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(abninferencestudy)
+```
+
+# Description
+
+We are interested in the predictive performance of the ABN inference procedure across varying data characteristics and conditioning sets of evidence.
+We analyse different graph structures with varying numbers of nodes, edge densities, maximal number of parents, node distribution types, and Markov blanket sizes. The goal is to evaluate how well the inference algorithm performs under these varying conditions, and how performance and runtime depend on the conditioning set of evidence.
+
+# Effect of the distribution types
+
+Fixed parameters:
+- number of nodes $p = 12$,
+- density $d = 0.4$,
+- maximal number of parents $mp=5$.
+
+Varying parameters:
+- distribution type (`nodedists = balanced, G, P, B, M`).
+
+```{r}
+# Set the parameters to retrieve the data
+n <- 100 # number of observations
+p <- 12 # number of nodes
+d <- 0.4 # density
+mp <- 5 # maximal number of parents
+n_graphs <- seq(1:10) # number of graphs 
+
+nodedists_range <- c("balanced","G","P","B","M")  # distribution of nodes
+evidence_type_list <- c("none", "children", "spouses", "parents", "mb") 
+
+data_dir <- here("data")
+results_dir <- here("results")
+```
+
+```{r}
+# Progressbar
+total_steps <- length(nodedists_range) * length(n_graphs)
+pb <- txtProgressBar(min = 0, max = total_steps, style = 3)
+step_i <- 0
+
+# Construct the filenames from the parameters
+for (nodedists in nodedists_range){
+  for (n_graph in n_graphs){
+    step_i <- step_i + 1
+    setTxtProgressBar(pb, step_i)
+    
+    # Construct the filename
+    name_data <- paste0(
+            "n_100_p_", p,
+            "_nodedists_", nodedists,
+            "_d_", gsub('[.]','',d),
+            "_mp_", mp,
+            "_graph", n_graph
+          )
+    
+    in_file <- file.path(data_dir, paste0(name_data, ".Rdata"))
+    out_file <- file.path(results_dir, paste0("abn_inference_", name_data, ".RData"))
+    
+    # Check if results already exist
+    if (file.exists(out_file)) {
+      message("Inference already exists for ", name_data, ". Skipping.")
+      next
+    }
+              
+    # Load the data
+    if (!file.exists(in_file)) {
+      message("Input file not found: ", name_data, ". Skipping.")
+      next
+    }
+    
+    # don't understand this, I would rather load the data
+    load(in_file)
+    obj_name <- ls(pattern = paste0("^", name_data))
+    if (length(obj_name) == 0) {
+      stop("No matching object found in the loaded file for: ", name_data)
+    }
+    data <- get(obj_name[1])
+              
+    # Inference with `abn` package
+    possible_inference <- purrr::possibly(
+      function(ev) RunABN_inference(dataset = data, evidence_type = ev, rngSEED = rngSEED),
+      otherwise = NULL
+    )
+    abninferenceobj <- tryCatch(
+        {
+          res <- purrr::map(evidence_type_list, possible_inference)
+          names(res) <- evidence_type_list
+          res
+        },
+        error = function(e) {
+          message("Error in inference for ", name_data, ": ", e$message)
+          NULL
+        }
+    )
+
+    elapsed_vec <- vapply(
+      evidence_type_list,
+      function(ev) {
+        res <- abninferenceobj[[ev]]
+        if (is.null(res) || is.null(res$timing)) NA_real_ else as.numeric(res$timing)
+      },
+      numeric(1)
+    )
+    names(elapsed_vec) <- evidence_type_list
+
+    abninferenceobj_final <- list(
+      none     = if (!is.null(abninferenceobj[["none"]])) abninferenceobj[["none"]]$predictions else NULL,
+      parents  = if (!is.null(abninferenceobj[["children"]])) abninferenceobj[["parents"]]$predictions else NULL,
+      children = if (!is.null(abninferenceobj[["spouses"]])) abninferenceobj[["children"]]$predictions else NULL,
+      spouses  = if (!is.null(abninferenceobj[["parents"]])) abninferenceobj[["spouses"]]$predictions else NULL,
+      mb       = if (!is.null(abninferenceobj[["mb"]])) abninferenceobj[["mb"]]$predictions else NULL,
+      time     = elapsed_vec
+    )
+    
+    # Check if abninferenceobj is NULL, if so, skip to the next iteration
+    if (is.null(abninferenceobj_final)) {
+      message("Inference returned NULL for ", name_data, ". Skipping.")
+      next
+    }   
+  
+    pred_obj_name <- paste0("abn_inference_", name_data)
+    assign(pred_obj_name, abninferenceobj_final)
+    save(list = pred_obj_name, file = out_file, compress = "xz")
+    rm(list = pred_obj_name)
+    gc()
+  } # end of graph loop
+} # end of dis loop
+gc()
+close(pb) # close the progress bar
+cat("\nFinished at: ", as.character(Sys.time()), "\n")
+```
+
+# Effect of the number of nodes
+
+Fixed parameters:
+- density $d = 0.4$,
+- maximal number of parents $mp=5$.
+
+Varying parameters:
+- number of nodes $p = 8, 12, 16, 20$.
+- distribution type (`nodedists = balanced, G, P, B, M`).
+
+```{r}
+# Set the parameters to retrieve the data
+n <- 100 # number of observations
+d <- 0.4 # density
+mp <- 5 # maximal number of parents
+n_graphs <- seq(1:10) # number of graphs 
+
+p_range <- c(4, 8, 12, 16, 20)
+nodedists_range <- c("balanced","G","P","B","M")  # distribution of nodes
+evidence_type_list <- c("none", "children", "spouses", "parents", "mb") 
+
+data_dir <- here("data")
+results_dir <- here("results")
+```
+
+```{r}
+# Progressbar
+total_steps <- length(nodedists_range) * length(n_graphs) * length(p_range)
+pb <- txtProgressBar(min = 0, max = total_steps, style = 3)
+step_i <- 0
+
+# Construct the filenames from the parameters
+for (p in p_range){
+  for (nodedists in nodedists_range){
+    for (n_graph in n_graphs){
+      step_i <- step_i + 1
+      setTxtProgressBar(pb, step_i)
+      
+      # Construct the filename
+      name_data <- paste0(
+              "n_100_p_", p,
+              "_nodedists_", nodedists,
+              "_d_", gsub('[.]','',d),
+              "_mp_", mp,
+              "_graph", n_graph
+            )
+      
+      in_file <- file.path(data_dir, paste0(name_data, ".Rdata"))
+      out_file <- file.path(results_dir, paste0("abn_inference_", name_data, ".RData"))
+      
+      # Check if results already exist
+      if (file.exists(out_file)) {
+        message("Inference already exists for ", name_data, ". Skipping.")
+        next
+      }
+                
+      # Load the data
+      if (!file.exists(in_file)) {
+        message("Input file not found: ", name_data, ". Skipping.")
+        next
+      }
+      
+      # don't understand this, I would rather load the data
+      load(in_file)
+      obj_name <- ls(pattern = paste0("^", name_data))
+      if (length(obj_name) == 0) {
+        stop("No matching object found in the loaded file for: ", name_data)
+      }
+      data <- get(obj_name[1])
+                
+      # Inference with `abn` package
+      possible_inference <- purrr::possibly(
+        function(ev) RunABN_inference(dataset = data, evidence_type = ev, rngSEED = rngSEED),
+        otherwise = NULL
+      )
+      abninferenceobj <- tryCatch(
+          {
+            res <- purrr::map(evidence_type_list, possible_inference)
+            names(res) <- evidence_type_list
+            res
+          },
+          error = function(e) {
+            message("Error in inference for ", name_data, ": ", e$message)
+            NULL
+          }
+      )
+  
+      elapsed_vec <- vapply(
+        evidence_type_list,
+        function(ev) {
+          res <- abninferenceobj[[ev]]
+          if (is.null(res) || is.null(res$timing)) NA_real_ else as.numeric(res$timing)
+        },
+        numeric(1)
+      )
+      names(elapsed_vec) <- evidence_type_list
+  
+      abninferenceobj_final <- list(
+        none     = if (!is.null(abninferenceobj[["none"]])) abninferenceobj[["none"]]$predictions else NULL,
+        parents  = if (!is.null(abninferenceobj[["children"]])) abninferenceobj[["parents"]]$predictions else NULL,
+        children = if (!is.null(abninferenceobj[["spouses"]])) abninferenceobj[["children"]]$predictions else NULL,
+        spouses  = if (!is.null(abninferenceobj[["parents"]])) abninferenceobj[["spouses"]]$predictions else NULL,
+        mb       = if (!is.null(abninferenceobj[["mb"]])) abninferenceobj[["mb"]]$predictions else NULL,
+        time     = elapsed_vec
+      )
+      
+      # Check if abninferenceobj is NULL, if so, skip to the next iteration
+      if (is.null(abninferenceobj_final)) {
+        message("Inference returned NULL for ", name_data, ". Skipping.")
+        next
+      }   
+    
+      pred_obj_name <- paste0("abn_inference_", name_data)
+      assign(pred_obj_name, abninferenceobj_final)
+      save(list = pred_obj_name, file = out_file, compress = "xz")
+      rm(list = pred_obj_name)
+      gc()
+    } # end of graph loop
+  } # end of dist loop
+} # end of p loop
+gc()
+close(pb) # close the progress bar
+cat("\nFinished at: ", as.character(Sys.time()), "\n")
+```
+
+# Effect of the density
+
+Fixed parameters:
+- number of nodes $p = 16$,
+- maximal number of parents $mp=6$.
+
+Varying parameters:
+- densities $d= 0.2, 0.4, 0.6$.
+- distribution type (`nodedists = balanced, G, P, B, M`).
+
+```{r}
+# Set the parameters to retrieve the data
+n <- 100 # number of observations
+p <- 16 # number of nodes
+mp <- 6 # maximal number of parents
+n_graphs <- seq(1:10) # number of graphs 
+
+d_range <- c(0.2,0.4,0.6)
+nodedists_range <- c("balanced","G","P","B","M")  # distribution of nodes
+evidence_type_list <- c("none", "children", "spouses", "parents", "mb") 
+
+data_dir <- here("data")
+results_dir <- here("results")
+```
+
+```{r}
+# Progressbar
+total_steps <- length(nodedists_range) * length(n_graphs) * length(d_range)
+pb <- txtProgressBar(min = 0, max = total_steps, style = 3)
+step_i <- 0
+
+# Construct the filenames from the parameters
+for (d in d_range){
+  for (nodedists in nodedists_range){
+    for (n_graph in n_graphs){
+      step_i <- step_i + 1
+      setTxtProgressBar(pb, step_i)
+      
+      # Construct the filename
+      name_data <- paste0(
+              "n_100_p_", p,
+              "_nodedists_", nodedists,
+              "_d_", gsub('[.]','',d),
+              "_mp_", mp,
+              "_graph", n_graph
+            )
+      
+      in_file <- file.path(data_dir, paste0(name_data, ".Rdata"))
+      out_file <- file.path(results_dir, paste0("abn_inference_", name_data, ".RData"))
+      
+      # Check if results already exist
+      if (file.exists(out_file)) {
+        message("Inference already exists for ", name_data, ". Skipping.")
+        next
+      }
+                
+      # Load the data
+      if (!file.exists(in_file)) {
+        message("Input file not found: ", name_data, ". Skipping.")
+        next
+      }
+      
+      # don't understand this, I would rather load the data
+      load(in_file)
+      obj_name <- ls(pattern = paste0("^", name_data))
+      if (length(obj_name) == 0) {
+        stop("No matching object found in the loaded file for: ", name_data)
+      }
+      data <- get(obj_name[1])
+                
+      # Inference with `abn` package
+      possible_inference <- purrr::possibly(
+        function(ev) RunABN_inference(dataset = data, evidence_type = ev, rngSEED = rngSEED),
+        otherwise = NULL
+      )
+      abninferenceobj <- tryCatch(
+          {
+            res <- purrr::map(evidence_type_list, possible_inference)
+            names(res) <- evidence_type_list
+            res
+          },
+          error = function(e) {
+            message("Error in inference for ", name_data, ": ", e$message)
+            NULL
+          }
+      )
+  
+      elapsed_vec <- vapply(
+        evidence_type_list,
+        function(ev) {
+          res <- abninferenceobj[[ev]]
+          if (is.null(res) || is.null(res$timing)) NA_real_ else as.numeric(res$timing)
+        },
+        numeric(1)
+      )
+      names(elapsed_vec) <- evidence_type_list
+  
+      abninferenceobj_final <- list(
+        none     = if (!is.null(abninferenceobj[["none"]])) abninferenceobj[["none"]]$predictions else NULL,
+        parents  = if (!is.null(abninferenceobj[["children"]])) abninferenceobj[["parents"]]$predictions else NULL,
+        children = if (!is.null(abninferenceobj[["spouses"]])) abninferenceobj[["children"]]$predictions else NULL,
+        spouses  = if (!is.null(abninferenceobj[["parents"]])) abninferenceobj[["spouses"]]$predictions else NULL,
+        mb       = if (!is.null(abninferenceobj[["mb"]])) abninferenceobj[["mb"]]$predictions else NULL,
+        time     = elapsed_vec
+      )
+      
+      # Check if abninferenceobj is NULL, if so, skip to the next iteration
+      if (is.null(abninferenceobj_final)) {
+        message("Inference returned NULL for ", name_data, ". Skipping.")
+        next
+      }   
+    
+      pred_obj_name <- paste0("abn_inference_", name_data)
+      assign(pred_obj_name, abninferenceobj_final)
+      save(list = pred_obj_name, file = out_file, compress = "xz")
+      rm(list = pred_obj_name)
+      gc()
+    } # end of graph loop
+  } # end of dist loop
+} # end of d loop
+gc()
+close(pb) # close the progress bar
+cat("\nFinished at: ", as.character(Sys.time()), "\n")
+```
+
+# Effect of the maximal number of parents
+
+Fixed parameters:
+- number of nodes $p = 16$,
+- density $d=0.2$.
+
+Varying parameters:
+- maximal number of parents $mp= 2, 3, 4, 5, 6, 7, 8, 16$.
+- distribution type (`nodedists = balanced, G, P, B, M`).
+
+```{r}
+# Set the parameters to retrieve the data
+n <- 100 # number of observations
+p <- 16 # number of nodes
+d <- 0.2 # density
+n_graphs <- seq(1:10) # number of graphs 
+
+mp_range <- c(seq(from=2,to=8),16)
+nodedists_range <- c("balanced","G","B","M")  # distribution of nodes
+evidence_type_list <- c("none", "children", "spouses", "parents", "mb") 
+
+data_dir <- here("data")
+results_dir <- here("results")
+```
+
+```{r}
+# Progressbar
+total_steps <- length(nodedists_range) * length(n_graphs) * length(mp_range)
+pb <- txtProgressBar(min = 0, max = total_steps, style = 3)
+step_i <- 0
+
+# Construct the filenames from the parameters
+for (mp in mp_range){
+  for (nodedists in nodedists_range){
+    for (n_graph in n_graphs){
+      step_i <- step_i + 1
+      setTxtProgressBar(pb, step_i)
+      
+      # Construct the filename
+      name_data <- paste0(
+              "n_100_p_", p,
+              "_nodedists_", nodedists,
+              "_d_", gsub('[.]','',d),
+              "_mp_", mp,
+              "_graph", n_graph
+            )
+      
+      in_file <- file.path(data_dir, paste0(name_data, ".Rdata"))
+      out_file <- file.path(results_dir, paste0("abn_inference_", name_data, ".RData"))
+      
+      # Check if results already exist
+      if (file.exists(out_file)) {
+        message("Inference already exists for ", name_data, ". Skipping.")
+        next
+      }
+                
+      # Load the data
+      if (!file.exists(in_file)) {
+        message("Input file not found: ", name_data, ". Skipping.")
+        next
+      }
+      
+      # don't understand this, I would rather load the data
+      load(in_file)
+      obj_name <- ls(pattern = paste0("^", name_data))
+      if (length(obj_name) == 0) {
+        stop("No matching object found in the loaded file for: ", name_data)
+      }
+      data <- get(obj_name[1])
+                
+      # Inference with `abn` package
+      possible_inference <- purrr::possibly(
+        function(ev) RunABN_inference(dataset = data, evidence_type = ev, rngSEED = rngSEED),
+        otherwise = NULL
+      )
+      abninferenceobj <- tryCatch(
+          {
+            res <- purrr::map(evidence_type_list, possible_inference)
+            names(res) <- evidence_type_list
+            res
+          },
+          error = function(e) {
+            message("Error in inference for ", name_data, ": ", e$message)
+            NULL
+          }
+      )
+  
+      elapsed_vec <- vapply(
+        evidence_type_list,
+        function(ev) {
+          res <- abninferenceobj[[ev]]
+          if (is.null(res) || is.null(res$timing)) NA_real_ else as.numeric(res$timing)
+        },
+        numeric(1)
+      )
+      names(elapsed_vec) <- evidence_type_list
+  
+      abninferenceobj_final <- list(
+        none     = if (!is.null(abninferenceobj[["none"]])) abninferenceobj[["none"]]$predictions else NULL,
+        parents  = if (!is.null(abninferenceobj[["children"]])) abninferenceobj[["parents"]]$predictions else NULL,
+        children = if (!is.null(abninferenceobj[["spouses"]])) abninferenceobj[["children"]]$predictions else NULL,
+        spouses  = if (!is.null(abninferenceobj[["parents"]])) abninferenceobj[["spouses"]]$predictions else NULL,
+        mb       = if (!is.null(abninferenceobj[["mb"]])) abninferenceobj[["mb"]]$predictions else NULL,
+        time     = elapsed_vec
+      )
+      
+      # Check if abninferenceobj is NULL, if so, skip to the next iteration
+      if (is.null(abninferenceobj_final)) {
+        message("Inference returned NULL for ", name_data, ". Skipping.")
+        next
+      }   
+    
+      pred_obj_name <- paste0("abn_inference_", name_data)
+      assign(pred_obj_name, abninferenceobj_final)
+      save(list = pred_obj_name, file = out_file, compress = "xz")
+      rm(list = pred_obj_name)
+      gc()
+    } # end of graph loop
+  } # end of dist loop
+} # end of mp loop
+gc()
+close(pb) # close the progress bar
+cat("\nFinished at: ", as.character(Sys.time()), "\n")
+```
+
+# Effect of the Markov blanket size
+
+Fixed parameters:
+- number of nodes $p = 12$,
+- density $d=0.4$,
+- maximal number of parents $mp=5$.
+
+Varying parameters:
+- Markov blanket size $mb = 1,...,11$.
+- distribution of target node (Gaussian, Poisson, binomial, or multinomial),
+- distribution type (`nodedists = balanced, G, P, B, M`).
+
+```{r}
+# Set the parameters to retrieve the data
+n <- 100 # number of observations
+p <- 12 # number of nodes
+d <- 0.4 # density
+mp <- 5 # maximal number of parents
+n_graphs <- seq(1:10) # number of graphs 
+
+mb_range <- seq(from=1,to=11)
+target_node_range <- c("g1","p1","b1","m1")
+nodedists_range <- c("balanced","G","B","M")  # distribution of nodes
+evidence_type_list <- c("none", "children", "spouses", "parents", "mb") 
+
+data_dir <- here("data")
+results_dir <- here("results")
+```
+
+```{r}
+# Progressbar
+total_steps <- length(nodedists_range) * length(n_graphs) * length(mb_range) * length(target_node_range)
+pb <- txtProgressBar(min = 0, max = total_steps, style = 3)
+step_i <- 0
+
+# Construct the filenames from the parameters
+for (mb in mb_range){
+  for (target_node in target_node_range){
+    for (nodedists in nodedists_range){
+      for (n_graph in n_graphs){
+        step_i <- step_i + 1
+        setTxtProgressBar(pb, step_i)
+        
+        # Construct the filename
+        name_data <- paste0(
+                "n_100_p_", p,
+                "_nodedists_", nodedists,
+                "_d_", gsub('[.]','',d),
+                "_mp_", mp,
+                "_MB_",mb,
+                "_node_",target_node,
+                "_graph", n_graph
+              )
+        
+        in_file <- file.path(data_dir, paste0(name_data, ".Rdata"))
+        out_file <- file.path(results_dir, paste0("abn_inference_", name_data, ".RData"))
+        
+        # Check if results already exist
+        if (file.exists(out_file)) {
+          message("Inference already exists for ", name_data, ". Skipping.")
+          next
+        }
+                  
+        # Load the data
+        if (!file.exists(in_file)) {
+          message("Input file not found: ", name_data, ". Skipping.")
+          next
+        }
+        
+        # don't understand this, I would rather load the data
+        load(in_file)
+        obj_name <- ls(pattern = paste0("^", name_data))
+        if (length(obj_name) == 0) {
+          stop("No matching object found in the loaded file for: ", name_data)
+        }
+        data <- get(obj_name[1])
+                  
+        # Inference with `abn` package
+        possible_inference <- purrr::possibly(
+          function(ev) RunABN_inference(dataset = data, evidence_type = ev, rngSEED = rngSEED),
+          otherwise = NULL
+        )
+        abninferenceobj <- tryCatch(
+            {
+              res <- purrr::map(evidence_type_list, possible_inference)
+              names(res) <- evidence_type_list
+              res
+            },
+            error = function(e) {
+              message("Error in inference for ", name_data, ": ", e$message)
+              NULL
+            }
+        )
+    
+        elapsed_vec <- vapply(
+          evidence_type_list,
+          function(ev) {
+            res <- abninferenceobj[[ev]]
+            if (is.null(res) || is.null(res$timing)) NA_real_ else as.numeric(res$timing)
+          },
+          numeric(1)
+        )
+        names(elapsed_vec) <- evidence_type_list
+    
+        abninferenceobj_final <- list(
+          none     = if (!is.null(abninferenceobj[["none"]])) abninferenceobj[["none"]]$predictions else NULL,
+          parents  = if (!is.null(abninferenceobj[["children"]])) abninferenceobj[["parents"]]$predictions else NULL,
+          children = if (!is.null(abninferenceobj[["spouses"]])) abninferenceobj[["children"]]$predictions else NULL,
+          spouses  = if (!is.null(abninferenceobj[["parents"]])) abninferenceobj[["spouses"]]$predictions else NULL,
+          mb       = if (!is.null(abninferenceobj[["mb"]])) abninferenceobj[["mb"]]$predictions else NULL,
+          time     = elapsed_vec
+        )
+        
+        # Check if abninferenceobj is NULL, if so, skip to the next iteration
+        if (is.null(abninferenceobj_final)) {
+          message("Inference returned NULL for ", name_data, ". Skipping.")
+          next
+        }   
+      
+        pred_obj_name <- paste0("abn_inference_", name_data)
+        assign(pred_obj_name, abninferenceobj_final)
+        save(list = pred_obj_name, file = out_file, compress = "xz")
+        rm(list = pred_obj_name)
+        gc()
+      } # end of graph loop
+    } # end of dist loop
+  } # # end of target node loop
+} # end of mb loop
+gc()
+close(pb) # close the progress bar
+cat("\nFinished at: ", as.character(Sys.time()), "\n")
+```
