@@ -40,6 +40,7 @@ p <- 12 # number of nodes
 d <- 0.4 # density
 mp <- 5 # maximal number of parents
 n_graphs <- seq(1:10) # number of graphs 
+rngSEED <- 12345L
 
 nodedists_range <- c("balanced","G","P","B","M")  # distribution of nodes
 evidence_type_list <- c("none", "children", "spouses", "parents", "mb") 
@@ -84,13 +85,20 @@ for (nodedists in nodedists_range){
       next
     }
     
-    # don't understand this, I would rather load the data
-    load(in_file)
-    obj_name <- ls(pattern = paste0("^", name_data))
-    if (length(obj_name) == 0) {
-      stop("No matching object found in the loaded file for: ", name_data)
+    sim_env <- new.env(parent = emptyenv())
+    loaded_names <- load(in_file, envir = sim_env)
+
+    target_name <- paste0("^", name_data, "$")
+    matched_names <- grep(target_name, loaded_names, value = TRUE)
+
+    if (length(matched_names) == 0) {
+      stop(
+        "Exact object '", name_data, "' not found in ", in_file,
+          ". Available objects: ", paste(loaded_names, collapse = ", ")
+      )
     }
-    data <- get(obj_name[1])
+
+    data <- sim_env[[matched_names[1]]]
               
     # Inference with `abn` package
     possible_inference <- purrr::possibly(
@@ -163,6 +171,8 @@ d <- 0.4 # density
 mp <- 5 # maximal number of parents
 n_graphs <- seq(1:10) # number of graphs 
 
+rngSEED <- 12345L 
+
 p_range <- c(4, 8, 12, 16, 20)
 nodedists_range <- c("balanced","G","P","B","M")  # distribution of nodes
 evidence_type_list <- c("none", "children", "spouses", "parents", "mb") 
@@ -208,14 +218,21 @@ for (p in p_range){
         next
       }
       
-      # don't understand this, I would rather load the data
-      load(in_file)
-      obj_name <- ls(pattern = paste0("^", name_data))
-      if (length(obj_name) == 0) {
-        stop("No matching object found in the loaded file for: ", name_data)
+      sim_env <- new.env(parent = emptyenv())
+      loaded_names <- load(in_file, envir = sim_env)
+
+      target_name <- paste0("^", name_data, "$")
+      matched_names <- grep(target_name, loaded_names, value = TRUE)
+
+      if (length(matched_names) == 0) {
+        stop(
+          "Exact object '", name_data, "' not found in ", in_file,
+          ". Available objects: ", paste(loaded_names, collapse = ", ")
+        )
       }
-      data <- get(obj_name[1])
-                
+
+      data <- sim_env[[matched_names[1]]]
+               
       # Inference with `abn` package
       possible_inference <- purrr::possibly(
         function(ev) RunABN_inference(dataset = data, evidence_type = ev, rngSEED = rngSEED),
@@ -333,14 +350,21 @@ for (d in d_range){
         next
       }
       
-      # don't understand this, I would rather load the data
-      load(in_file)
-      obj_name <- ls(pattern = paste0("^", name_data))
-      if (length(obj_name) == 0) {
-        stop("No matching object found in the loaded file for: ", name_data)
+      sim_env <- new.env(parent = emptyenv())
+      loaded_names <- load(in_file, envir = sim_env)
+
+      target_name <- paste0("^", name_data, "$")
+      matched_names <- grep(target_name, loaded_names, value = TRUE)
+
+      if (length(matched_names) == 0) {
+        stop(
+          "Exact object '", name_data, "' not found in ", in_file,
+          ". Available objects: ", paste(loaded_names, collapse = ", ")
+        )
       }
-      data <- get(obj_name[1])
-                
+
+      data <- sim_env[[matched_names[1]]]
+         
       # Inference with `abn` package
       possible_inference <- purrr::possibly(
         function(ev) RunABN_inference(dataset = data, evidence_type = ev, rngSEED = rngSEED),
@@ -413,9 +437,11 @@ p <- 16 # number of nodes
 d <- 0.2 # density
 n_graphs <- seq(1:10) # number of graphs 
 
-mp_range <- c(seq(from=2,to=8),16)
-nodedists_range <- c("balanced","G","B","M")  # distribution of nodes
+mp_range <- c(seq(from=2,to=8),15)
+nodedists_range <- c("balanced","G","P","B","M")  # distribution of nodes
 evidence_type_list <- c("none", "children", "spouses", "parents", "mb") 
+
+rngSEED <- 12345L 
 
 data_dir <- here("data")
 results_dir <- here("results")
@@ -447,25 +473,26 @@ for (mp in mp_range){
       out_file <- file.path(results_dir, paste0("abn_inference_", name_data, ".RData"))
       
       # Check if results already exist
-      if (file.exists(out_file)) {
-        message("Inference already exists for ", name_data, ". Skipping.")
-        next
-      }
-                
-      # Load the data
       if (!file.exists(in_file)) {
         message("Input file not found: ", name_data, ". Skipping.")
         next
       }
       
-      # don't understand this, I would rather load the data
-      load(in_file)
-      obj_name <- ls(pattern = paste0("^", name_data))
-      if (length(obj_name) == 0) {
-        stop("No matching object found in the loaded file for: ", name_data)
+      sim_env <- new.env(parent = emptyenv())
+      loaded_names <- load(in_file, envir = sim_env)
+
+      target_name <- paste0("^", name_data, "$")
+      matched_names <- grep(target_name, loaded_names, value = TRUE)
+
+      if (length(matched_names) == 0) {
+        stop(
+          "Exact object '", name_data, "' not found in ", in_file,
+          ". Available objects: ", paste(loaded_names, collapse = ", ")
+        )
       }
-      data <- get(obj_name[1])
-                
+
+      data <- sim_env[[matched_names[1]]]
+               
       # Inference with `abn` package
       possible_inference <- purrr::possibly(
         function(ev) RunABN_inference(dataset = data, evidence_type = ev, rngSEED = rngSEED),
@@ -541,9 +568,11 @@ d <- 0.4 # density
 mp <- 5 # maximal number of parents
 n_graphs <- seq(1:10) # number of graphs 
 
+rngSEED <- 12345L
+
 mb_range <- seq(from=1,to=11)
 target_node_range <- c("g1","p1","b1","m1")
-nodedists_range <- c("balanced","G","B","M")  # distribution of nodes
+nodedists_range <- c("balanced","G","P","B","M")  # distribution of nodes
 evidence_type_list <- c("none", "children", "spouses", "parents", "mb") 
 
 data_dir <- here("data")
@@ -579,24 +608,25 @@ for (mb in mb_range){
         out_file <- file.path(results_dir, paste0("abn_inference_", name_data, ".RData"))
         
         # Check if results already exist
-        if (file.exists(out_file)) {
-          message("Inference already exists for ", name_data, ". Skipping.")
-          next
-        }
-                  
-        # Load the data
         if (!file.exists(in_file)) {
           message("Input file not found: ", name_data, ". Skipping.")
           next
         }
         
-        # don't understand this, I would rather load the data
-        load(in_file)
-        obj_name <- ls(pattern = paste0("^", name_data))
-        if (length(obj_name) == 0) {
-          stop("No matching object found in the loaded file for: ", name_data)
+        sim_env <- new.env(parent = emptyenv())
+        loaded_names <- load(in_file, envir = sim_env)
+  
+        target_name <- paste0("^", name_data, "$")
+        matched_names <- grep(target_name, loaded_names, value = TRUE)
+  
+        if (length(matched_names) == 0) {
+          stop(
+            "Exact object '", name_data, "' not found in ", in_file,
+            ". Available objects: ", paste(loaded_names, collapse = ", ")
+          )
         }
-        data <- get(obj_name[1])
+  
+        data <- sim_env[[matched_names[1]]]
                   
         # Inference with `abn` package
         possible_inference <- purrr::possibly(
