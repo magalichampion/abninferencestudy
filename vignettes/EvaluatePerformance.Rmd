@@ -50,22 +50,29 @@ results_file <- file.path(results_dir, paste0("abn_inference_",name_data, ".Rdat
 if (!file.exists(data_file)) {
   message("Input file not found: ", name_data, ".")
 } else {
-  load(data_file)
-  obj_name <- ls(pattern = paste0("^", name_data))
-  if (length(obj_name) == 0) {
-    stop("No matching object found in the loaded file for: ", name_data)
+  sim_env <- new.env(parent = emptyenv())
+  loaded_names <- load(data_file, envir = sim_env)
+
+  target_name <- paste0("^", name_data, "$")
+  matched_names <- grep(target_name, loaded_names, value = TRUE)
+
+  if (length(matched_names) == 0) {
+    stop(
+      "Exact object '", name_data, "' not found in ", data_file,
+        ". Available objects: ", paste(loaded_names, collapse = ", ")
+    )
   }
-  data <- get(obj_name[1])
+
+  data <- sim_env[[matched_names[1]]]
 }
 if (!file.exists(results_file)) {
   message("Inference results do not exist for ", name_data, ".")
 } else {
-  load(results_file)
-  pred_obj_name <- grep(paste0("^abn_inference_", name_data), ls(), value = TRUE)
-  if (length(pred_obj_name) == 0) {
-    stop("No matching object found in the loaded file for: ", name_data)
-  }
-  pred <- get(pred_obj_name[1])
+  sim_env <- new.env(parent = emptyenv())
+  loaded_names <- load(results_file, envir = sim_env)
+  target_name <- paste0("^abn_inference_", name_data, "$")
+  matched_names <- grep(target_name, loaded_names, value = TRUE)
+  pred <- sim_env[[matched_names[1]]]
 }
                   
 # Compute the performance results 
@@ -106,6 +113,9 @@ For generating the figures, we need to go through all existing `abn_inference` o
 # Extract the files
 file_names <- dir(path = here("results"), 
                        pattern = "^abn_inference")
+results_dir <- here("results")
+data_dir <- here("data")
+evidence_type_list <- c("none", "children", "spouses", "parents", "mb") 
 
 for (filename in file_names){
   name_data <- sub("\\.RData$", "", filename) # remove the .RData suffix
@@ -113,7 +123,7 @@ for (filename in file_names){
 
   # check if scores already exist
   scores_obj_name <- paste0("Scores_", name_data)
-  score_file <- file.path(here("results"), paste0(scores_obj_name, ".RData"))
+  score_file <- file.path(results_dir, paste0(scores_obj_name, ".RData"))
   
   if (file.exists(score_file)) {
     message("Scores for ", name_data, " were already computed. Skipping.")
@@ -121,22 +131,30 @@ for (filename in file_names){
   }
 
   # load predictions
-  load(file.path(here("results"), filename))
-  
-  pred_obj_name <- grep(paste0("^abn_inference_", name_data), ls(), value = TRUE)
+  pred_file <- file.path(results_dir, filename)
+  pred_env <- new.env(parent = emptyenv())
+  pred_loaded <- load(pred_file, envir = pred_env)
+
+  pred_obj_name <- grep(paste0("^abn_inference_", name_data), pred_loaded, value = TRUE)
   if (length(pred_obj_name) == 0) {
-    stop("No matching object found in the loaded file for: ", name_data)
+    stop("No matching prediction object found in ", pred_file, " for: ", name_data)
   }
-  pred <- get(pred_obj_name[1])
+  pred <- pred_env[[pred_obj_name[1]]]
 
   # load associated data
-  data_file <- file.path(here("data"), paste0(name_data, ".Rdata"))
-  load(data_file)
-  obj_name <- ls(pattern = paste0("^", name_data))
-  if (length(obj_name) == 0) {
-    stop("No matching object found in the loaded file for: ", name_data)
+  data_file <- file.path(data_dir, paste0(name_data, ".Rdata"))
+  if (!file.exists(data_file)) {
+    stop("Associated data file not found for: ", name_data, " at ", data_file)
   }
-  data <- get(obj_name[1])
+
+  data_env <- new.env(parent = emptyenv())
+  data_loaded <- load(data_file, envir = data_env)
+
+  data_obj_name <- grep(paste0("^", name_data), data_loaded, value = TRUE)
+  if (length(data_obj_name) == 0) {
+    stop("No matching data object found in ", data_file, " for: ", name_data)
+  }
+  data <- data_env[[data_obj_name[1]]]
   
   # Compute the performance results 
   results <- purrr::map(

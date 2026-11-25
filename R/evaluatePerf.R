@@ -1,3 +1,34 @@
+#' Evaluate Node-Level ABN Inference Performance
+#'
+#' Computes prediction scores, bias, and (for discrete nodes) classification
+#' accuracy for each node in an additive Bayesian network by comparing
+#' observed values against sample-level or marginal predictions.
+#'
+#' @param observed A \code{data.frame} of observed values with \code{n} rows
+#'   and columns corresponding to the node names in \code{dists}. 
+#' @param predicted A named list indexed by node name containing either
+#'   sample-level predictions (a list of length \code{n}, one entry per
+#'   observation) or marginal predictions per node.
+#' @param dists A named character vector or list mapping each node name to its
+#'   distribution type (\code{"gaussian"}, \code{"binomial"}, \code{"poisson"},
+#'   or \code{"multinomial"}).
+#'
+#' @return A \code{data.frame} (\code{PerfTable}) with row names set to node
+#'   names and the following columns:
+#' \describe{
+#'   \item{node}{Character node name.}
+#'   \item{node_type}{Distribution type for the node.}
+#'   \item{bias}{Mean predicted value minus mean observed value.}
+#'   \item{accuracy}{Classification accuracy for \code{"binomial"} and
+#'     \code{"multinomial"} nodes, \code{NA} for \code{"gaussian"} and
+#'     \code{"poisson"} nodes.}
+#'   \item{score}{Node prediction score (MSE, Brier score, or relative
+#'     deviance).}
+#'   \item{scoreName}{Name of the score metric (\code{"MSE"},
+#'     \code{"BrierScore"}, or \code{"Deviance"}).}
+#' }
+#'
+#' @export
 EvaluatePerf <- function(observed, predicted, dists){
   n <- nrow(observed)
   node_names <- names(dists)

@@ -49,41 +49,28 @@ merged_simus <- merge_scores(results_directory, p = p, d = d, mp = mp)
 plot_compare_distributions(merged_simus, results_dir = results_directory, save_figure = TRUE)
 ```
 
-In Figure 2 (effect of the graph/nodes on the performances), we fix `n`, `k`, `groups` and the pooling strategy `strategy`.
+In Figure 2 (effect of the number of nodes on the performances), we fix `d` and `mp`.
 
 ```{r}
-n <- 1000
-k <- 5
-groups <- "Even"
-strategy <- "PP"
-p <- NULL
-s <- NULL
-nodedists <- NULL
-path_directory <- paste0(path.package("mabnsimstud"),"/results/")
+d <- 0.4
+mp <- 5
+results_directory <- here("results")
 
-merged_simus <- merge_simulation_results(path_directory = path_directory,n = n, k = k, groups = groups, strategy = strategy)
+merged_simus <- merge_scores(results_directory, d = d, mp = mp)
 
-plot_accuracy_by_graph(merged_simus, metric = "SHD")
+plot_compare_p(merged_simus, results_dir = results_directory, save_figure = TRUE)
 ```
 
-In Figure 3 (effect of the number of samples per group on the pooling performances), we fix `p`, `s` and `nodedists` and we compare the pooling strategies.
-
-One particularity of the graph is that we merge the number of samples per group in bins (100-125, 200-250, 400-500, 1000).
+In Figure 3 (effect of the density on the performances), we fix `p` and `mp`.
 
 ```{r}
-p <- 6
-s <- 0.4
-nodedists <- "Balanced"
-groups <- "Even"
-n <- NULL
-k <- NULL
-strategy <- NULL
+p <- 16
+mp <- 5
+results_directory <- here("results")
 
-path_directory <- paste0(path.package("mabnsimstud"),"/results/")
+merged_simus <- merge_scores(results_directory, p = p, mp = mp)
 
-merged_simus <- merge_simulation_results(path_directory = path_directory,p = p, s = s, nodedists = nodedists, groups = groups)
-
-plot_accuracy_pooling_by_number_samples_per_group(merged_simus, metric = "SHD")
+plot_compare_d(merged_simus, results_dir = results_directory, save_figure = TRUE)
 ```
 
 In Figure 4 (effect of the model complexity on the pooling performances), we fix `n`, `k` and `groups` and we compare the pooling strategies. 
