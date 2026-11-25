@@ -92,8 +92,11 @@ simulateABNdata <- function(n, p, nodedists, d, max_parents, magnitude = NULL, M
   Check <- check_combinations(p = p, d, max_parents, nodedists, p_distrib)
   
   if (is.null(Check)){
-    nbr_graphs <- 2000
-    
+    if (nodedists == "M" && p>=16 && mp >=7){
+      nbr_graphs <- 10000 # needs a bit more iterations
+    } else {
+      nbr_graphs <- 1000
+    }
     adj_matrix_total <- generate_RandomDAGs(p_distrib, d = d, max_parents = max_parents, nbr_graphs = nbr_graphs, MB = MB)
     
     dags <- lapply(adj_matrix_total, function(A){
