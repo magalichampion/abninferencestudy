@@ -59,7 +59,7 @@ for (p in p_range){
   if (p==4){
     nodedists_range <- "balanced"  # distribution of nodes
   } else {
-    nodedists_range <- c("balanced","G","B","M")  # distribution of nodes
+    nodedists_range <- c("balanced","G","P","B","M")  # distribution of nodes
   }
   for (nodedists in nodedists_range){
     for (d in d_range){
