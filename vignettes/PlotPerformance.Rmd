@@ -65,7 +65,7 @@ In Figure 3 (effect of the density on the performances), we fix `p` and `mp`.
 
 ```{r}
 p <- 16
-mp <- 5
+mp <- 6
 results_directory <- here("results")
 
 merged_simus <- merge_scores(results_directory, p = p, mp = mp)
@@ -73,20 +73,28 @@ merged_simus <- merge_scores(results_directory, p = p, mp = mp)
 plot_compare_d(merged_simus, results_dir = results_directory, save_figure = TRUE)
 ```
 
-In Figure 4 (effect of the model complexity on the pooling performances), we fix `n`, `k` and `groups` and we compare the pooling strategies. 
+In Figure 4 (effect of the maximal number of parents on the performances), we fix `p` and `d`.
 
 ```{r}
-n <- 1000
-k <- 5
-groups <- "Even"
-nodedists <- "Balanced"
-p <- NULL
-s <- NULL
-strategy <- NULL
+p <- 16
+d <- 0.2
+results_directory <- here("results")
 
-path_directory <- paste0(path.package("mabnsimstud"),"/results/")
+merged_simus <- merge_scores(results_directory, p = p, d = d)
 
-merged_simus <- merge_simulation_results(path_directory = path_directory,n = n, k = k, groups = groups, nodedists=nodedists)
+plot_compare_mp(merged_simus, results_dir = results_directory, save_figure = TRUE)
+```
 
-plot_accuracy_pooling_by_complexity(merged_simus, metric = "SHD")
+In Figure 5 (effect of the Markov blanket size on the performances), we fix `p`, `d`, `mp`, and `nodedists`.
+
+```{r}
+p <- 12
+d <- 0.4
+mp <- 5
+nodedists <- "balanced"
+results_directory <- here("results")
+
+merged_simus <- merge_mb_scores(results_directory, p = p, d = d, mp = mp, node_dists = "balanced")
+
+plot_compare_mb(merged_simus, results_dir = results_directory, save_figure = TRUE)
 ```
