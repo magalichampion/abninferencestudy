@@ -36,7 +36,9 @@ merged_simus <- merge_scores(results_dir, p = p, d = d, mp = mp)
 
 # Plot performances results
 
-In Figure 1 (effect of the distribution settings), we fix `p`, `d`, and `mp`.
+## Effect of the distribution settings 
+
+In Figure 1, we fix `p`, `d`, and `mp`, and we plot the effect of the distribution settings on the performance.
 
 ```{r}
 p <- 12
@@ -49,7 +51,9 @@ merged_simus <- merge_scores(results_directory, p = p, d = d, mp = mp)
 plot_compare_distributions(merged_simus, results_dir = results_directory, save_figure = TRUE)
 ```
 
-In Figure 2 (effect of the number of nodes on the performances), we fix `d` and `mp`.
+## Effect of the number of nodes
+
+In Figure 2, we fix `d` and `mp`, and we plot the effect of the number of nodes on the performance.
 
 ```{r}
 d <- 0.4
@@ -61,7 +65,9 @@ merged_simus <- merge_scores(results_directory, d = d, mp = mp)
 plot_compare_p(merged_simus, results_dir = results_directory, save_figure = TRUE)
 ```
 
-In Figure 3 (effect of the density on the performances), we fix `p` and `mp`.
+## Effect of the density
+
+In Figure 3, we fix `p` and `mp`, and we plot the effect of the density on the performance.
 
 ```{r}
 p <- 16
@@ -73,7 +79,9 @@ merged_simus <- merge_scores(results_directory, p = p, mp = mp)
 plot_compare_d(merged_simus, results_dir = results_directory, save_figure = TRUE)
 ```
 
-In Figure 4 (effect of the maximal number of parents on the performances), we fix `p` and `d`.
+## Effect of the maximal number of parents
+
+In Figure 4, we fix `p` and `d`, and we plot the effect of the maximal number of parents on the performance.
 
 ```{r}
 p <- 16
@@ -85,7 +93,22 @@ merged_simus <- merge_scores(results_directory, p = p, d = d)
 plot_compare_mp(merged_simus, results_dir = results_directory, save_figure = TRUE)
 ```
 
-In Figure 5 (effect of the Markov blanket size on the performances), we fix `p`, `d`, `mp`, and `nodedists`.
+In Figure 5, we show the effect of the maximal number of parents on the computational time.
+
+```{r}
+p <- 16
+d <- 0.2
+results_directory <- here("results")
+
+merged_simus <- merge_scores(results_directory, p = p, d = d)
+
+plot_compare_mp_time(merged_simus, results_dir = results_directory, save_figure = TRUE)
+```
+
+
+## Effect of the Markov blanket size
+
+In Figure 6, we fix `p`, `d`, `mp`, and `nodedists`, and we plot the effect of the Markov blanket size on the performance.
 
 ```{r}
 p <- 12
